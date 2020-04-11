@@ -3,7 +3,12 @@ package org.reactnative.camera;
 import android.Manifest;
 import android.annotation.SuppressLint;
 import android.content.pm.PackageManager;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.graphics.Color;
+import android.graphics.ImageFormat;
+import android.graphics.Rect;
+import android.graphics.YuvImage;
 import android.media.CamcorderProfile;
 import android.os.Build;
 import androidx.core.content.ContextCompat;
@@ -20,7 +25,10 @@ import org.reactnative.barcodedetector.RNBarcodeDetector;
 import org.reactnative.camera.tasks.*;
 import org.reactnative.camera.utils.RNFileUtils;
 import org.reactnative.facedetector.RNFaceDetector;
+import org.reactnative.frame.RNFrame;
+import org.reactnative.frame.RNFrameFactory;
 
+import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
 import java.util.*;
@@ -35,6 +43,7 @@ public class RNCameraView extends CameraView implements LifecycleEventListener, 
   private Map<Promise, File> mPictureTakenDirectories = new ConcurrentHashMap<>();
   private Promise mVideoRecordedPromise;
   private List<String> mBarCodeTypes = null;
+  private boolean mDetectedImageInEvent = false;
 
   private boolean mIsPaused = false;
   private boolean mIsNew = true;
@@ -243,6 +252,10 @@ public class RNCameraView extends CameraView implements LifecycleEventListener, 
     initBarcodeReader();
   }
 
+  public void setDetectedImageInEvent(boolean detectedImageInEvent) {
+    this.mDetectedImageInEvent = detectedImageInEvent;
+  }
+
   public void takePicture(final ReadableMap options, final Promise promise, final File cacheDirectory) {
     mBgHandler.post(new Runnable() {
       @Override
@@ -340,13 +353,28 @@ public class RNCameraView extends CameraView implements LifecycleEventListener, 
     setScanning(mShouldDetectFaces || mShouldGoogleDetectBarcodes || mShouldScanBarCodes || mShouldRecognizeText);
   }
 
-  public void onBarCodeRead(Result barCode, int width, int height) {
+  public void onBarCodeRead(Result barCode, int width, int height, byte[] imageData) {
     String barCodeType = barCode.getBarcodeFormat().toString();
     if (!mShouldScanBarCodes || !mBarCodeTypes.contains(barCodeType)) {
       return;
     }
 
-    RNCameraViewHelper.emitBarCodeReadEvent(this, barCode,  width,  height);
+    final byte[] compressedImage;
+    if (mDetectedImageInEvent) {
+      try {
+        // https://stackoverflow.com/a/32793908/122441
+        final YuvImage yuvImage = new YuvImage(imageData, ImageFormat.NV21, width, height, null);
+        final ByteArrayOutputStream imageStream = new ByteArrayOutputStream();
+        yuvImage.compressToJpeg(new Rect(0, 0, width, height), 100, imageStream);
+        compressedImage = imageStream.toByteArray();
+      } catch (Exception e) {
+        throw new RuntimeException(String.format("Error decoding imageData from NV21 format (%d bytes)", imageData.length), e);
+      }
+    } else {
+      compressedImage = null;
+    }
+
+    RNCameraViewHelper.emitBarCodeReadEvent(this, barCode, width, height, compressedImage);
   }
 
   public void onBarCodeScanningTaskCompleted() {
