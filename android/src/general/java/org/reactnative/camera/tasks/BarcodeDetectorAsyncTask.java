@@ -1,6 +1,7 @@
 package org.reactnative.camera.tasks;
 
 import android.graphics.Rect;
+import android.util.Base64;
 import android.util.SparseArray;
 
 import com.facebook.react.bridge.Arguments;
@@ -90,6 +91,8 @@ public class BarcodeDetectorAsyncTask extends android.os.AsyncTask<Void, Void, S
       serializedBarcode.putString("rawData", barcode.rawValue);
       serializedBarcode.putString("type", BarcodeFormatUtils.get(barcode.format));
       serializedBarcode.putMap("bounds", processBounds(barcode.getBoundingBox()));
+      // TODO: see discussion in https://github.com/react-native-community/react-native-camera/issues/2786
+      // serializedBarcode.putString("imageData", Base64.encodeToString(mImageData, Base64.DEFAULT));
       barcodesList.pushMap(serializedBarcode);
     }
 
