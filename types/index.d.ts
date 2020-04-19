@@ -132,6 +132,33 @@ export interface Constants {
   VideoStabilization: VideoStabilization;
 }
 
+export interface BarCodeReadEvent {
+  data: string;
+  rawData?: string;
+  type: keyof BarCodeType;
+  /**
+   * @description For Android use `{ width: number, height: number, origin: Array<Point<string>> }`
+   * @description For iOS use `{ origin: Point<string>, size: Size<string> }`
+   */
+  bounds:
+    | { width: number; height: number; origin: Array<Point<string>> }
+    | { origin: Point<string>; size: Size<string> };
+  /**
+   * Raw image bytes in JPEG format (quality 100) as Base64-encoded string, only provided if `detectedImageInEvent=true`.
+   */
+  image: string;
+}
+
+export interface GoogleVisionBarcodesDetectedEvent {
+  type: string;
+  barcodes: Barcode[];
+  target: number;
+  /**
+   * Raw image bytes in JPEG format (quality 100) as Base64-encoded string, only provided if `detectedImageInEvent=true`.
+   */
+  image?: string;
+}
+
 export interface RNCameraProps {
   children?: ReactNode | FaCC;
 
@@ -186,24 +213,8 @@ export interface RNCameraProps {
   barCodeTypes?: Array<keyof BarCodeType>;
   googleVisionBarcodeType?: Constants['GoogleVisionBarcodeDetection']['BarcodeType'];
   googleVisionBarcodeMode?: Constants['GoogleVisionBarcodeDetection']['BarcodeMode'];
-  onBarCodeRead?(event: {
-    data: string;
-    rawData?: string;
-    type: keyof BarCodeType;
-    /**
-     * @description For Android use `{ width: number, height: number, origin: Array<Point<string>> }`
-     * @description For iOS use `{ origin: Point<string>, size: Size<string> }`
-     */
-    bounds:
-      | { width: number; height: number; origin: Array<Point<string>> }
-      | { origin: Point<string>; size: Size<string> };
-    /**
-     * Raw image bytes in JPEG format (quality 100) as Base64-encoded string, only provided if `detectedImageInEvent=true`.
-     */
-    image: string;
-  }): void;
-
-  onGoogleVisionBarcodesDetected?(event: { barcodes: Barcode[] }): void;
+  onBarCodeRead?(event: BarCodeReadEvent): void;
+  onGoogleVisionBarcodesDetected?(event: GoogleVisionBarcodesDetectedEvent): void;
 
   // limiting scan area
   rectOfInterest?: Point;
