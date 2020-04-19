@@ -1,7 +1,6 @@
 package org.reactnative.camera.tasks;
 
 import android.graphics.Rect;
-import android.util.Base64;
 import android.util.SparseArray;
 
 import com.facebook.react.bridge.Arguments;
@@ -30,19 +29,18 @@ public class BarcodeDetectorAsyncTask extends android.os.AsyncTask<Void, Void, S
   private int mPaddingTop;
 
   public BarcodeDetectorAsyncTask(
-      BarcodeDetectorAsyncTaskDelegate delegate,
-      RNBarcodeDetector barcodeDetector,
-      byte[] imageData,
-      int width,
-      int height,
-      int rotation,
-      float density,
-      int facing,
-      int viewWidth,
-      int viewHeight,
-      int viewPaddingLeft,
-      int viewPaddingTop
-  ) {
+          BarcodeDetectorAsyncTaskDelegate delegate,
+          RNBarcodeDetector barcodeDetector,
+          byte[] imageData,
+          int width,
+          int height,
+          int rotation,
+          float density,
+          int facing,
+          int viewWidth,
+          int viewHeight,
+          int viewPaddingLeft,
+          int viewPaddingTop) {
     mImageData = imageData;
     mWidth = width;
     mHeight = height;
@@ -74,7 +72,7 @@ public class BarcodeDetectorAsyncTask extends android.os.AsyncTask<Void, Void, S
       mDelegate.onBarcodeDetectionError(mBarcodeDetector);
     } else {
       if (barcodes.size() > 0) {
-        mDelegate.onBarcodesDetected(serializeEventData(barcodes));
+        mDelegate.onBarcodesDetected(serializeEventData(barcodes), mWidth, mHeight, mImageData);
       }
       mDelegate.onBarcodeDetectingTaskCompleted();
     }
@@ -91,8 +89,6 @@ public class BarcodeDetectorAsyncTask extends android.os.AsyncTask<Void, Void, S
       serializedBarcode.putString("rawData", barcode.rawValue);
       serializedBarcode.putString("type", BarcodeFormatUtils.get(barcode.format));
       serializedBarcode.putMap("bounds", processBounds(barcode.getBoundingBox()));
-      // TODO: see discussion in https://github.com/react-native-community/react-native-camera/issues/2786
-      // serializedBarcode.putString("imageData", Base64.encodeToString(mImageData, Base64.DEFAULT));
       barcodesList.pushMap(serializedBarcode);
     }
 
