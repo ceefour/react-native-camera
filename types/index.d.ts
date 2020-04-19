@@ -1,6 +1,7 @@
 // Type definitions for react-native-camera 1.0
 // Definitions by: Felipe Constantino <https://github.com/fconstant>
 //                 Trent Jones <https://github.com/FizzBuzz791>
+//                 Brent Kelly <https://github.com/mrbrentkelly>
 // If you modify this file, put your GitHub info here as well (for easy contacting purposes)
 
 /*
@@ -11,7 +12,7 @@
  * If you are seeing this from the future, please, send us your cutting-edge technology :) (if it exists)
  */
 import { Component, ReactNode } from 'react';
-import { NativeMethodsMixinStatic, ViewProperties, findNodeHandle } from 'react-native';
+import { NativeMethods, ViewProperties, findNodeHandle } from 'react-native';
 
 type Orientation = Readonly<{
   auto: any;
@@ -443,7 +444,7 @@ export interface RecordResponse {
 export class RNCamera extends Component<RNCameraProps & ViewProperties> {
   static Constants: Constants;
 
-  _cameraRef: null | NativeMethodsMixinStatic;
+  _cameraRef: null | NativeMethods;
   _cameraHandle: ReturnType<typeof findNodeHandle>;
 
   takePictureAsync(options?: TakePictureOptions): Promise<TakePictureResponse>;
