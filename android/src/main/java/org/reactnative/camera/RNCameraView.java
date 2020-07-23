@@ -3,6 +3,8 @@ package org.reactnative.camera;
 import android.Manifest;
 import android.annotation.SuppressLint;
 import android.content.pm.PackageManager;
+import android.content.res.Configuration;
+import android.content.res.Resources;
 import android.graphics.Color;
 import android.graphics.ImageFormat;
 import android.graphics.Rect;
@@ -10,6 +12,11 @@ import android.graphics.YuvImage;
 import android.media.CamcorderProfile;
 import android.os.Build;
 import androidx.core.content.ContextCompat;
+
+import android.util.DisplayMetrics;
+import android.view.GestureDetector;
+import android.view.MotionEvent;
+import android.view.ScaleGestureDetector;
 import android.view.View;
 import android.os.AsyncTask;
 import com.facebook.react.bridge.*;
@@ -41,11 +48,16 @@ public class RNCameraView extends CameraView implements LifecycleEventListener, 
   private List<String> mBarCodeTypes = null;
   private boolean mDetectedImageInEvent = false;
 
+  private ScaleGestureDetector mScaleGestureDetector;
+  private GestureDetector mGestureDetector;
+
+
   private boolean mIsPaused = false;
   private boolean mIsNew = true;
   private boolean invertImageData = false;
   private Boolean mIsRecording = false;
   private Boolean mIsRecordingInterrupted = false;
+  private boolean mUseNativeZoom=false;
 
   // Concurrency lock for scanners to avoid flooding the runtime
   public volatile boolean barCodeScannerTaskLock = false;
@@ -61,6 +73,7 @@ public class RNCameraView extends CameraView implements LifecycleEventListener, 
   private boolean mShouldGoogleDetectBarcodes = false;
   private boolean mShouldScanBarCodes = false;
   private boolean mShouldRecognizeText = false;
+  private boolean mShouldDetectTouches = false;
   private int mFaceDetectorMode = RNFaceDetector.FAST_MODE;
   private int mFaceDetectionLandmarks = RNFaceDetector.NO_LANDMARKS;
   private int mFaceDetectionClassifications = RNFaceDetector.NO_CLASSIFICATIONS;
@@ -288,6 +301,7 @@ public class RNCameraView extends CameraView implements LifecycleEventListener, 
           String path = options.hasKey("path") ? options.getString("path") : RNFileUtils.getOutputFilePath(cacheDirectory, ".mp4");
           int maxDuration = options.hasKey("maxDuration") ? options.getInt("maxDuration") : -1;
           int maxFileSize = options.hasKey("maxFileSize") ? options.getInt("maxFileSize") : -1;
+          int fps = options.hasKey("fps") ? options.getInt("fps") : -1;
 
           CamcorderProfile profile = CamcorderProfile.get(CamcorderProfile.QUALITY_HIGH);
           if (options.hasKey("quality")) {
@@ -307,7 +321,7 @@ public class RNCameraView extends CameraView implements LifecycleEventListener, 
             orientation = options.getInt("orientation");
           }
 
-          if (RNCameraView.super.record(path, maxDuration * 1000, maxFileSize, recordAudio, profile, orientation)) {
+          if (RNCameraView.super.record(path, maxDuration * 1000, maxFileSize, recordAudio, profile, orientation, fps)) {
             mIsRecording = true;
             mVideoRecordedPromise = promise;
           } else {
@@ -390,9 +404,39 @@ public class RNCameraView extends CameraView implements LifecycleEventListener, 
     this.mScanAreaWidth = width;
     this.mScanAreaHeight = height;
   }
-    public void setCameraViewDimensions(int width, int height) {
+  public void setCameraViewDimensions(int width, int height) {
     this.mCameraViewWidth = width;
     this.mCameraViewHeight = height;
+  }
+
+
+  public void setShouldDetectTouches(boolean shouldDetectTouches) {
+    if(!mShouldDetectTouches && shouldDetectTouches){
+      mGestureDetector=new GestureDetector(mThemedReactContext,onGestureListener);
+    }else{
+      mGestureDetector=null;
+    }
+    this.mShouldDetectTouches = shouldDetectTouches;
+  }
+
+  public void setUseNativeZoom(boolean useNativeZoom){
+    if(!mUseNativeZoom && useNativeZoom){
+      mScaleGestureDetector = new ScaleGestureDetector(mThemedReactContext,onScaleGestureListener);
+    }else{
+      mScaleGestureDetector=null;
+    }
+    mUseNativeZoom=useNativeZoom;
+  }
+
+  @Override
+  public boolean onTouchEvent(MotionEvent event) {
+    if(mUseNativeZoom) {
+      mScaleGestureDetector.onTouchEvent(event);
+    }
+    if(mShouldDetectTouches){
+      mGestureDetector.onTouchEvent(event);
+    }
+    return true;
   }
 
   /**
@@ -604,6 +648,17 @@ public class RNCameraView extends CameraView implements LifecycleEventListener, 
         }
       });
   }
+  private void onZoom(float scale){
+    float currentZoom=getZoom();
+    float nextZoom=currentZoom+(scale-1.0f);
+
+    if(nextZoom > currentZoom){
+      setZoom(Math.min(nextZoom,1.0f));
+    }else{
+      setZoom(Math.max(nextZoom,0.0f));
+    }
+
+  }
 
   private boolean hasCameraPermissions() {
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
@@ -613,4 +668,43 @@ public class RNCameraView extends CameraView implements LifecycleEventListener, 
       return true;
     }
   }
+  private int scalePosition(float raw){
+    Resources resources = getResources();
+    Configuration config = resources.getConfiguration();
+    DisplayMetrics dm = resources.getDisplayMetrics();
+    return (int)(raw/ dm.density);
+  }
+  private GestureDetector.SimpleOnGestureListener onGestureListener = new GestureDetector.SimpleOnGestureListener(){
+    @Override
+    public boolean onSingleTapUp(MotionEvent e) {
+      RNCameraViewHelper.emitTouchEvent(RNCameraView.this,false,scalePosition(e.getX()),scalePosition(e.getY()));
+      return true;
+    }
+
+    @Override
+    public boolean onDoubleTap(MotionEvent e) {
+      RNCameraViewHelper.emitTouchEvent(RNCameraView.this,true,scalePosition(e.getX()),scalePosition(e.getY()));
+      return true;
+    }
+  };
+  private ScaleGestureDetector.OnScaleGestureListener onScaleGestureListener = new ScaleGestureDetector.OnScaleGestureListener() {
+
+    @Override
+    public boolean onScale(ScaleGestureDetector scaleGestureDetector) {
+      onZoom(scaleGestureDetector.getScaleFactor());
+      return true;
+    }
+
+    @Override
+    public boolean onScaleBegin(ScaleGestureDetector scaleGestureDetector) {
+      onZoom(scaleGestureDetector.getScaleFactor());
+      return true;
+    }
+
+    @Override
+    public void onScaleEnd(ScaleGestureDetector scaleGestureDetector) {
+    }
+
+  };
+
 }

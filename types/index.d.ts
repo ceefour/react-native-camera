@@ -34,6 +34,13 @@ type WhiteBalance = Readonly<{
   fluorescent: any;
   auto: any;
 }>;
+type CustomWhiteBalance = {
+  temperature: number;
+  tint: number;
+  redGainOffset?: number;
+  greenGainOffset?: number;
+  blueGainOffset?: number
+};
 type BarCodeType = Readonly<{
   aztec: any;
   code128: any;
@@ -174,7 +181,7 @@ export interface RNCameraProps {
   pendingAuthorizationView?: JSX.Element;
   useCamera2Api?: boolean;
   exposure?: number;
-  whiteBalance?: keyof WhiteBalance;
+  whiteBalance?: keyof WhiteBalance | CustomWhiteBalance;
   captureAudio?: boolean;
 
   onCameraReady?(): void;
@@ -197,7 +204,10 @@ export interface RNCameraProps {
   /** iOS only */
   onAudioInterrupted?(): void;
   onAudioConnected?(): void;
-
+  onTap?(origin:Point):void;
+  onDoubleTap?(origin:Point):void;
+  /** Use native pinch to zoom implementation*/
+  useNativeZoom?:boolean;
   /** Value: float from 0 to 1.0 */
   zoom?: number;
   /** iOS only. float from 0 to any. Locks the max zoom value to the provided value
